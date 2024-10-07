@@ -55,7 +55,7 @@ def artifact_extract(
     workflow_id: str = None,
     task_config: dict = None,
 ) -> str:
-    """Run image_export on input files.
+    """Run image_export on input files to extract specific artifacts.
 
     Args:
         pipe_result: Base64-encoded result from the previous Celery task, if any.
@@ -126,7 +126,7 @@ def artifact_extract(
     shutil.rmtree(export_directory)
 
     if not output_files:
-        raise RuntimeError("image_ export didn't create any output files")
+        raise RuntimeError("image_export didn't create any output files")
 
     return task_result(
         output_files=output_files,
