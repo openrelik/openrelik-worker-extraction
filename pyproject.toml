@@ -1,8 +1,9 @@
 [tool.poetry]
-name = "openrelik-worker-template"
-version = "2024.09.23"
-description = "Description of the worker"
-authors = ["YOUR NAME <email@example.com>"]
+name = "openrelik-worker-artifact-extraction"
+version = "2024.10.07"
+description = "Extract forensic artifacts with image_export"
+authors = ["Ramses de Beer <ramsesdebeer@gmail.com>"]
+license = "Apache 2.0"
 readme = "README.md"
 package-mode = false
 
