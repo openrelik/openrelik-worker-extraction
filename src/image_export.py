@@ -115,7 +115,7 @@ def artifact_extract(
 
             output_file = create_output_file(
                 output_path=output_path,
-                filename=original_path,
+                filename=file.name,
                 original_path=original_path,
                 data_type=f"openrelik.worker.artifact.{artifact}",
             )
