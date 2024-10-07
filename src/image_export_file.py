@@ -102,7 +102,9 @@ def file_extract(
         #     output_files.append(log_file.to_dict())
 
         export_directory_path = Path(export_directory)
-        extracted_files = [f for f in export_directory_path.glob("**/*") if f.is_file()]
+        extracted_files = [
+            f for f in export_directory_path.glob(f"**/{filename}") if f.is_file()
+        ]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
 
