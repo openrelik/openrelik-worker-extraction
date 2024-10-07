@@ -1,15 +1,31 @@
 # Use the official Docker Hub Ubuntu base image
 FROM ubuntu:24.04
 
+# Choose what version of Plaso to use.
+# 20240721 - Use testing because Plaso doesn't support Ubuntu 24.04 in stable yet.
+# TODO: Change to stable when version 20240826 is released.
+ARG PPA_TRACK=staging
+
 # Prevent needing to configure debian packages, stopping the setup of
 # the docker container.
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
-# Install poetry and any other dependency that your worker needs.
+# Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    python3-pip \
     python3-poetry \
-    # Add your dependencies here
-    && rm -rf /var/lib/apt/lists/*
+    gpg-agent \
+    wget \
+    tzdata \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Plaso
+RUN add-apt-repository -y ppa:gift/$PPA_TRACK
+RUN apt-get update && apt-get install -y --no-install-recommends \
+#    dfimagetools-tools \ # TODO(hacktobeer) Use this package instead of plaso-tools once it has been moved by jbmetz.
+    plaso-tools \
+  && rm -rf /var/lib/apt/lists/*
 
 # Configure poetry
 ENV POETRY_NO_INTERACTION=1 \
@@ -26,11 +42,14 @@ ENV OPENRELIK_PYDEBUG_PORT ${OPENRELIK_PYDEBUG_PORT:-5678}
 # Set working directory
 WORKDIR /openrelik
 
+# Enable system-site-packages
+RUN poetry config virtualenvs.options.system-site-packages true
+
 # Copy poetry toml and install dependencies
 COPY ./pyproject.toml ./poetry.lock .
 RUN poetry install --no-interaction --no-ansi
 
-# Copy files needed to build
+# Copy all worker files
 COPY . ./
 
 # Install the worker and set environment to use the correct python interpreter.
