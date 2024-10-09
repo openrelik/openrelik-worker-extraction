@@ -70,10 +70,11 @@ def artifact_extract(
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
     artifacts = task_config["artifacts"].split(",")
+
     for artifact in artifacts:
         for input_file in input_files:
             log_file = create_output_file(
-                output_path, filename=f"image_export_{artifact}", file_extension="log"
+                output_path, filename=f"image_export_{artifact}.log"
             )
 
             export_directory = os.path.join(output_path, uuid4().hex)
