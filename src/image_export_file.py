@@ -37,8 +37,8 @@ TASK_METADATA = {
     "task_config": [
         {
             "name": "filenames",
-            "label": "Filenames",
-            "description": "A comma seperated list of filenames to extract",
+            "label": "Select filenames to extract",
+            "description": "A comma seperated list of filenames to extract.",
             "type": "text",
             "required": True,
         },

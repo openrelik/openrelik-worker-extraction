@@ -37,10 +37,10 @@ TASK_METADATA = {
     "task_config": [
         {
             "name": "artifacts",
-            "label": "Artfifacts",
-            "description": "A comma seperated list of artifacts to extract",
-            "type": "text",
-            "required": True,
+            "label": "Select artifacts to extract",
+            "description": "Select one or more forensic artifact definitions from the ForensicArtifacts project. These definitions specify files and data relevant to digital forensic investigations.  The selected artifacts will then be extracted from the provided disk image.",
+            "type": "artifacts",
+            "required": False,
         },
     ],
 }
@@ -69,7 +69,10 @@ def artifact_extract(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
-    artifacts = task_config["artifacts"].split(",")
+    artifacts = task_config["artifacts"]
+
+    if isinstance(artifacts, str):
+        artifacts = task_config["artifacts"].split(",")
 
     for artifact in artifacts:
         for input_file in input_files:
@@ -106,14 +109,13 @@ def artifact_extract(
                         self.send_event("task-progress", data=log_dict)
                 time.sleep(2)
 
-        if os.path.isfile(log_file.path):
+        if os.path.isfile(log_file.path) and os.stat(log_file.path).st_size > 0:
             output_files.append(log_file.to_dict())
 
         export_directory_path = Path(export_directory)
         extracted_files = [f for f in export_directory_path.glob("**/*") if f.is_file()]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
-
             output_file = create_output_file(
                 output_path=output_path,
                 filename=file.name,
@@ -121,7 +123,6 @@ def artifact_extract(
                 data_type=f"openrelik.worker.artifact.{artifact}",
             )
             os.rename(file.absolute(), output_file.path)
-
             output_files.append(output_file.to_dict())
 
     shutil.rmtree(export_directory)
