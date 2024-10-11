@@ -12,12 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-import subprocess
-import time
 import shutil
 
 from pathlib import Path
-from uuid import uuid4
 
 from openrelik_worker_common.utils import (
     create_output_file,
@@ -25,29 +22,22 @@ from openrelik_worker_common.utils import (
     task_result,
 )
 
+import openrelik_worker_common.archives as archives
+
 from .app import celery
 
 # Task name used to register and route the task to the correct queue.
-TASK_NAME = "openrelik-worker-artifact-extraction.tasks.artifact_extract"
+TASK_NAME = "openrelik-worker-extraction.tasks.extract_archive"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "Artifact Extraction",
-    "description": "Extract artifacts",
-    "task_config": [
-        {
-            "name": "artifacts",
-            "label": "Artfifacts",
-            "description": "A comma seperated list of artifacts to extract",
-            "type": "text",
-            "required": True,
-        },
-    ],
+    "display_name": "Archive Extraction",
+    "description": "Extract different types of archives",
 }
 
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
-def artifact_extract(
+def extract_archive(
     self,
     pipe_result: str = None,
     input_files: list = None,
@@ -55,7 +45,7 @@ def artifact_extract(
     workflow_id: str = None,
     task_config: dict = None,
 ) -> str:
-    """Run image_export on input files.
+    """Extract archives and create output files for each extracted file.
 
     Args:
         pipe_result: Base64-encoded result from the previous Celery task, if any.
@@ -69,41 +59,16 @@ def artifact_extract(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
-    artifacts = task_config["artifacts"].split(",")
-    for artifact in artifacts:
-        for input_file in input_files:
-            log_file = create_output_file(
-                output_path, filename=f"image_export_{artifact}", file_extension="log"
-            )
+    for input_file in input_files:
+        print(f"Processing {input_file.get("path")}")
+        log_file = create_output_file(
+            output_path,
+            filename=f"archive_extract_{input_file.get("display_name")}",
+        )
 
-            export_directory = os.path.join(output_path, uuid4().hex)
-            os.mkdir(export_directory)
-
-            command = [
-                "image_export.py",
-                "--no-hashes",
-                "--logfile",
-                log_file.path,
-                "--write",
-                export_directory,
-                "--partitions",
-                "all",
-                "--volumes",
-                "all",
-                "--unattended",
-                "--artifact_filters",
-                artifact,
-                input_file.get("path"),
-            ]
-            command_string = " ".join(command[:5])
-
-            process = subprocess.Popen(command)
-            while process.poll() is None:
-                if os.path.isfile(log_file.path):
-                    with open(log_file.path, "r", encoding="utf-8") as f:
-                        log_dict = f.read()
-                        self.send_event("task-progress", data=log_dict)
-                time.sleep(2)
+        (command_string, export_directory) = archives.unpack(
+            input_file.get("path"), output_path, log_file.path
+        )
 
         if os.path.isfile(log_file.path):
             output_files.append(log_file.to_dict())
@@ -117,16 +82,17 @@ def artifact_extract(
                 output_path=output_path,
                 filename=file.name,
                 original_path=original_path,
-                data_type=f"openrelik.worker.artifact.{artifact}",
+                data_type="openrelik.worker.file.generic",
+                source_file_id=input_file.get("uuid"),
             )
             os.rename(file.absolute(), output_file.path)
 
             output_files.append(output_file.to_dict())
 
-    shutil.rmtree(export_directory)
+        shutil.rmtree(export_directory)
 
     if not output_files:
-        raise RuntimeError("image_ export didn't create any output files")
+        raise RuntimeError("archive extractor didn't create any output files")
 
     return task_result(
         output_files=output_files,

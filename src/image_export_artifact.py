@@ -28,7 +28,7 @@ from openrelik_worker_common.utils import (
 from .app import celery
 
 # Task name used to register and route the task to the correct queue.
-TASK_NAME = "openrelik-worker-artifact-extraction.tasks.artifact_extract"
+TASK_NAME = "openrelik-worker-extraction.tasks.artifact_extract"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
