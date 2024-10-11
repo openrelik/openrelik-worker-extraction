@@ -1,12 +1,12 @@
-# Openrelik worker for running image_extract on input files to extract forensic artifacts
+## Openrelik worker for running image_extract on input files to extract forensic artifacts
 
-## Installation
+### Installation
 Add the below configuration to the OpenRelik `docker-compose.yml` file.
 
 ```
 openrelik-worker-extraction:
     container_name: openrelik-worker-extraction
-    image: ghcr.io/openrelik/openrelik-worker-artifact-extraction:${OPENRELIK_WORKER_ARTIFACT_EXTRACTION_VERSION:-latest}
+    image: ghcr.io/openrelik/openrelik-worker-extraction:${OPENRELIK_WORKER_ARTIFACT_EXTRACTION_VERSION:-latest}
     restart: always
     environment:
       - REDIS_URL=redis://openrelik-redis:6379
