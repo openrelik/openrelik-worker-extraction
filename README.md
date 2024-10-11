@@ -4,8 +4,8 @@
 Add the below configuration to the OpenRelik `docker-compose.yml` file.
 
 ```
-openrelik-worker-artifact-extraction:
-    container_name: openrelik-worker-artifact-extraction
+openrelik-worker-extraction:
+    container_name: openrelik-worker-extraction
     image: ghcr.io/openrelik/openrelik-worker-artifact-extraction:${OPENRELIK_WORKER_ARTIFACT_EXTRACTION_VERSION:-latest}
     restart: always
     environment:
@@ -13,7 +13,5 @@ openrelik-worker-artifact-extraction:
       - OPENRELIK_PYDEBUG=0
     volumes:
       - ./data:/usr/share/openrelik/data
-    command: "celery --app=src.app worker --task-events --concurrency=4 --loglevel=INFO -Q openrelik-worker-artifact-extraction"
-    ports:
-      - 5678:5678 # For debugging purposes.
+    command: "celery --app=src.app worker --task-events --concurrency=4 --loglevel=INFO -Q openrelik-worker-extraction"
 ```
