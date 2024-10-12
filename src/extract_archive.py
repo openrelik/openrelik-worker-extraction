@@ -66,7 +66,7 @@ def extract_archive(
             filename=f"archive_extract_{input_file.get("display_name")}",
         )
 
-        (command_string, export_directory) = archives.unpack(
+        (command_string, export_directory) = archives.extract_7zip(
             input_file.get("path"), output_path, log_file.path
         )
 
