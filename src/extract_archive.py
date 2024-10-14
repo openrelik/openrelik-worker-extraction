@@ -82,7 +82,6 @@ def extract_archive(
                 output_path=output_path,
                 display_name=file.name,
                 original_path=original_path,
-                data_type="openrelik.worker.file.generic",
                 source_file_id=input_file.get("uuid"),
             )
             os.rename(file.absolute(), output_file.path)
