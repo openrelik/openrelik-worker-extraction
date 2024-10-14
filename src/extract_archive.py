@@ -60,7 +60,6 @@ def extract_archive(
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
     for input_file in input_files:
-        print(f"Processing {input_file.get("path")}")
         log_file = create_output_file(
             output_path,
             filename=f"archive_extract_{input_file.get("display_name")}",
