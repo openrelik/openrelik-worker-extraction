@@ -79,7 +79,7 @@ def extract_archive(
 
             output_file = create_output_file(
                 # TODO(rbdebeer) - fix when OutputFile class is refactored.
-                output_path=output_path,
+                output_path,
                 display_name=file.name,
                 original_path=original_path,
                 source_file_id=input_file.get("uuid"),
