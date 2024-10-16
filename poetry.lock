@@ -236,6 +236,20 @@ yaml = ["PyYAML (>=3.10)"]
 zookeeper = ["kazoo (>=2.8.0)"]
 
 [[package]]
+name = "openrelik-worker-common"
+version = "2024.10.16"
+description = "Common utilities for OpenRelik workers"
+optional = false
+python-versions = "<4.0,>=3.10"
+files = [
+    {file = "openrelik_worker_common-2024.10.16-py3-none-any.whl", hash = "sha256:d5df95a1d1643740fb98075ef8c9374214c6d1dccf4c71575b934d7e831c94eb"},
+    {file = "openrelik_worker_common-2024.10.16.tar.gz", hash = "sha256:4133fae1d4fb869f0d878ca65e872df75608fc1a77891addb37782b5884e8179"},
+]
+
+[package.dependencies]
+debugpy = ">=1.8.6,<2.0.0"
+
+[[package]]
 name = "prompt-toolkit"
 version = "3.0.48"
 description = "Library for building powerful interactive command lines in Python"
@@ -328,4 +342,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "4caf32c1b6a7e231fd42d2beebd344ea045638f6a494414c2206ee362ddd4158"
+content-hash = "209bd0b4759d4066390ff11d7c4b259d2e146e3d2f5bdf1f3fd7688903054871"
