@@ -13,7 +13,6 @@
 # limitations under the License.
 import os
 import subprocess
-import time
 import shutil
 
 from pathlib import Path
@@ -77,6 +76,7 @@ def file_extract(
 
             command = [
                 "image_export.py",
+                "--unattended",
                 "--name",
                 filename,
                 "--write",
@@ -88,18 +88,8 @@ def file_extract(
                 input_file.get("path"),
             ]
 
-            command_string = " ".join(command[:5])
-
-            process = subprocess.Popen(command)
-            while process.poll() is None:
-                # if os.path.isfile(log_file.path):
-                #     with open(log_file.path, "r", encoding="utf-8") as f:
-                #         log_dict = f.read()
-                #         self.send_event("task-progress", data=log_dict)
-                time.sleep(2)
-
-        # if os.path.isfile(log_file.path):
-        #     output_files.append(log_file.to_dict())
+            # Execute the command and block until it finishes.
+            subprocess.call(command)
 
         export_directory_path = Path(export_directory)
         extracted_files = [
@@ -107,15 +97,13 @@ def file_extract(
         ]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
-
             output_file = create_output_file(
-                output_path=output_path,
-                filename=file.name,
+                output_path,
+                display_name=file.name,
                 original_path=original_path,
-                data_type=f"openrelik.worker.file.{filename}",
+                data_type=f"openrelik:extraction:file",
             )
             os.rename(file.absolute(), output_file.path)
-
             output_files.append(output_file.to_dict())
 
     shutil.rmtree(export_directory)
@@ -126,5 +114,5 @@ def file_extract(
     return task_result(
         output_files=output_files,
         workflow_id=workflow_id,
-        command=command_string,
+        command=" ".join(command[:5]),
     )
