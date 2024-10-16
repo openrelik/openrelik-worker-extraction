@@ -64,8 +64,8 @@ def extract_archive(
             output_path,
             filename=f"archive_extract_{input_file.get("display_name")}",
         )
-        
-        (command_string, export_directory) = archives.extract_file(
+
+        (command_string, export_directory) = archives.extract_archive(
             input_file, output_path, log_file.path
         )
 
