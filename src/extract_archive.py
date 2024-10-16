@@ -62,7 +62,7 @@ def extract_archive(
     for input_file in input_files:
         log_file = create_output_file(
             output_path,
-            filename=f"archive_extract_{input_file.get("display_name")}",
+            display_name=f"archive_extract_{input_file.get("display_name")}",
         )
 
         (command_string, export_directory) = archives.extract_archive(
@@ -79,7 +79,7 @@ def extract_archive(
 
             output_file = create_output_file(
                 output_path,
-                filename=file.name,
+                display_name=file.name,
                 original_path=original_path,
                 source_file_id=input_file.get("uuid"),
             )
