@@ -91,7 +91,7 @@ def extract_archive(
         shutil.rmtree(export_directory)
 
     if not output_files:
-        raise RuntimeError("archive extractor didn't create any output files")
+        raise RuntimeError("Archive extractor didn't create any output files")
 
     return task_result(
         output_files=output_files,
