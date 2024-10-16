@@ -19,9 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Plaso
+# TODO(hacktobeer): Use "dfimagetools-tools" instead of "plaso-tools" when image_export.py has been migrated.
 RUN add-apt-repository -y ppa:gift/$PPA_TRACK
 RUN apt-get update && apt-get install -y --no-install-recommends \
-#    dfimagetools-tools \ # TODO(hacktobeer) Use this package instead of plaso-tools once it has been moved by jbmetz.
     plaso-tools \
   && rm -rf /var/lib/apt/lists/*
 
@@ -44,7 +44,7 @@ WORKDIR /openrelik
 RUN poetry config virtualenvs.options.system-site-packages true
 
 # Copy poetry toml and install dependencies
-COPY ./pyproject.toml ./poetry.lock .
+COPY ./pyproject.toml ./poetry.lock ./
 RUN poetry install --no-interaction --no-ansi
 
 # Copy all worker files
