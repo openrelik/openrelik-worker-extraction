@@ -77,7 +77,8 @@ def artifact_extract(
     for artifact_name in artifacts:
         for input_file in input_files:
             log_file = create_output_file(
-                output_path, display_name=f"image_export_{artifact_name}.log"
+                output_path,
+                display_name=f"image_export_{artifact_name}.log",
             )
 
             export_directory = os.path.join(output_path, uuid4().hex)
@@ -117,7 +118,7 @@ def artifact_extract(
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
             output_file = create_output_file(
-                output_path=output_path,
+                output_path,
                 display_name=file.name,
                 original_path=original_path,
                 data_type=f"openrelik:extraction:artifact:{artifact_name}",

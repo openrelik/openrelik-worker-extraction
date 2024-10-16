@@ -98,7 +98,7 @@ def file_extract(
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
             output_file = create_output_file(
-                output_path=output_path,
+                output_path,
                 display_name=file.name,
                 original_path=original_path,
                 data_type=f"openrelik:extraction:file",
