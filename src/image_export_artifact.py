@@ -28,7 +28,7 @@ from openrelik_worker_common.utils import (
 from .app import celery
 
 # Task name used to register and route the task to the correct queue.
-TASK_NAME = "openrelik-worker-artifact-extraction.tasks.artifact_extract"
+TASK_NAME = "openrelik-worker-extraction.tasks.artifact_extract"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
@@ -69,15 +69,16 @@ def artifact_extract(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
-    artifacts = task_config["artifacts"]
 
+    artifacts = task_config["artifacts"]
     if isinstance(artifacts, str):
         artifacts = task_config["artifacts"].split(",")
 
-    for artifact in artifacts:
+    for artifact_name in artifacts:
         for input_file in input_files:
             log_file = create_output_file(
-                output_path, filename=f"image_export_{artifact}.log"
+                output_path,
+                display_name=f"image_export_{artifact_name}.log",
             )
 
             export_directory = os.path.join(output_path, uuid4().hex)
@@ -96,7 +97,7 @@ def artifact_extract(
                 "all",
                 "--unattended",
                 "--artifact_filters",
-                artifact,
+                artifact_name,
                 input_file.get("path"),
             ]
             command_string = " ".join(command[:5])
@@ -117,10 +118,10 @@ def artifact_extract(
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
             output_file = create_output_file(
-                output_path=output_path,
-                filename=file.name,
+                output_path,
+                display_name=file.name,
                 original_path=original_path,
-                data_type=f"openrelik.worker.artifact.{artifact}",
+                data_type=f"openrelik:extraction:artifact:{artifact_name}",
             )
             os.rename(file.absolute(), output_file.path)
             output_files.append(output_file.to_dict())

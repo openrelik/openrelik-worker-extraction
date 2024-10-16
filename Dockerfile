@@ -13,15 +13,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     python3-pip \
     python3-poetry \
+    p7zip-full \
     gpg-agent \
     wget \
     tzdata \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Plaso
+# TODO(hacktobeer): Use "dfimagetools-tools" instead of "plaso-tools" when image_export.py has been migrated.
 RUN add-apt-repository -y ppa:gift/$PPA_TRACK
 RUN apt-get update && apt-get install -y --no-install-recommends \
-#    dfimagetools-tools \ # TODO(hacktobeer) Use this package instead of plaso-tools once it has been moved by jbmetz.
     plaso-tools \
   && rm -rf /var/lib/apt/lists/*
 
@@ -33,9 +34,9 @@ ENV POETRY_NO_INTERACTION=1 \
 
 # Configure debugging
 ARG OPENRELIK_PYDEBUG
-ENV OPENRELIK_PYDEBUG ${OPENRELIK_PYDEBUG:-0}
+ENV OPENRELIK_PYDEBUG=${OPENRELIK_PYDEBUG:-0}
 ARG OPENRELIK_PYDEBUG_PORT
-ENV OPENRELIK_PYDEBUG_PORT ${OPENRELIK_PYDEBUG_PORT:-5678}
+ENV OPENRELIK_PYDEBUG_PORT=${OPENRELIK_PYDEBUG_PORT:-5678}
 
 # Set working directory
 WORKDIR /openrelik
@@ -44,7 +45,7 @@ WORKDIR /openrelik
 RUN poetry config virtualenvs.options.system-site-packages true
 
 # Copy poetry toml and install dependencies
-COPY ./pyproject.toml ./poetry.lock .
+COPY ./pyproject.toml ./poetry.lock ./
 RUN poetry install --no-interaction --no-ansi
 
 # Copy all worker files
