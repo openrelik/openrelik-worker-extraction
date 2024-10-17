@@ -65,8 +65,8 @@ def extract_archive(
             display_name=f"archive_extract_{input_file.get("display_name")}",
         )
 
-        (command_string, export_directory) = archives.extract_7zip(
-            input_file.get("path"), output_path, log_file.path
+        (command_string, export_directory) = archives.extract_archive(
+            input_file, output_path, log_file.path
         )
 
         if os.path.isfile(log_file.path):
@@ -78,7 +78,6 @@ def extract_archive(
             original_path = str(file.relative_to(export_directory_path))
 
             output_file = create_output_file(
-                # TODO(rbdebeer) - fix when OutputFile class is refactored.
                 output_path,
                 display_name=file.name,
                 original_path=original_path,
