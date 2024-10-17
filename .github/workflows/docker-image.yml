@@ -52,7 +52,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/hacktobeer/openrelik-worker-extraction:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ steps.meta.outputs.tags }}
           labels: 
             ${{ steps.meta.outputs.labels }}
