@@ -101,7 +101,7 @@ def file_extract(
                 output_path,
                 display_name=file.name,
                 original_path=original_path,
-                data_type=f"openrelik:extraction:file",
+                data_type=f"worker:openrelik:extraction:file_extract:file",
             )
             os.rename(file.absolute(), output_file.path)
             output_files.append(output_file.to_dict())

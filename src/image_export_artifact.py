@@ -121,7 +121,7 @@ def artifact_extract(
                 output_path,
                 display_name=file.name,
                 original_path=original_path,
-                data_type=f"openrelik:extraction:artifact:{artifact_name}",
+                data_type=f"worker:openrelik:extraction:artifact_extract:artifact:{artifact_name}",
             )
             os.rename(file.absolute(), output_file.path)
             output_files.append(output_file.to_dict())
