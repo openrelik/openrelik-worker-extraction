@@ -32,8 +32,8 @@ TASK_NAME = "openrelik-worker-extraction.tasks.artifact_extract"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "Artifact Extraction",
-    "description": "Extract artifacts",
+    "display_name": "Extract Artifacts",
+    "description": "Extract files from a disk image using artifact definitions",
     "task_config": [
         {
             "name": "artifacts",

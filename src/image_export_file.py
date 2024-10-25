@@ -31,8 +31,8 @@ TASK_NAME = "openrelik-worker-extraction.tasks.file_extract"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "File Extraction",
-    "description": "Extract files",
+    "display_name": "Extract Files",
+    "description": "Extract files from a disk image",
     "task_config": [
         {
             "name": "filenames",

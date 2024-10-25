@@ -31,7 +31,7 @@ TASK_NAME = "openrelik-worker-extraction.tasks.extract_archive"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "Archive Extraction",
+    "display_name": "Extract Archives",
     "description": "Extract different types of archives",
 }
 
