@@ -13,14 +13,11 @@
 # limitations under the License.
 import os
 import shutil
-
 from pathlib import Path
 
+from openrelik_worker_common.archive_utils import extract_archive
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
-
-
-import openrelik_worker_common.archives as archives
 
 from .app import celery
 
@@ -63,7 +60,7 @@ def extract_archive(
             display_name=f"archive_extract_{input_file.get("display_name")}",
         )
 
-        (command_string, export_directory) = archives.extract_archive(
+        (command_string, export_directory) = extract_archive(
             input_file, output_path, log_file.path
         )
 
