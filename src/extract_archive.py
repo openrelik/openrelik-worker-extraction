@@ -13,16 +13,11 @@
 # limitations under the License.
 import os
 import shutil
-
 from pathlib import Path
 
-from openrelik_worker_common.utils import (
-    create_output_file,
-    get_input_files,
-    task_result,
-)
-
-import openrelik_worker_common.archives as archives
+from openrelik_worker_common.archive_utils import extract_archive
+from openrelik_worker_common.file_utils import create_output_file
+from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
 
@@ -31,7 +26,7 @@ TASK_NAME = "openrelik-worker-extraction.tasks.extract_archive"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "Archive Extraction",
+    "display_name": "Extract Archives",
     "description": "Extract different types of archives",
 }
 
@@ -65,7 +60,7 @@ def extract_archive(
             display_name=f"archive_extract_{input_file.get("display_name")}",
         )
 
-        (command_string, export_directory) = archives.extract_archive(
+        (command_string, export_directory) = extract_archive(
             input_file, output_path, log_file.path
         )
 
@@ -81,7 +76,8 @@ def extract_archive(
                 output_path,
                 display_name=file.name,
                 original_path=original_path,
-                source_file_id=input_file.get("uuid"),
+                data_type=f"worker:openrelik:extraction:archive",
+                source_file_id=input_file.get("id"),
             )
             os.rename(file.absolute(), output_file.path)
 
@@ -92,7 +88,7 @@ def extract_archive(
     if not output_files:
         raise RuntimeError("Archive extractor didn't create any output files")
 
-    return task_result(
+    return create_task_result(
         output_files=output_files,
         workflow_id=workflow_id,
         command=command_string,

@@ -18,11 +18,8 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from openrelik_worker_common.utils import (
-    create_output_file,
-    get_input_files,
-    task_result,
-)
+from openrelik_worker_common.file_utils import create_output_file
+from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
 
@@ -31,8 +28,8 @@ TASK_NAME = "openrelik-worker-extraction.tasks.file_extract"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "File Extraction",
-    "description": "Extract files",
+    "display_name": "Extract Files",
+    "description": "Extract files from a disk image",
     "task_config": [
         {
             "name": "filenames",
@@ -101,7 +98,8 @@ def file_extract(
                 output_path,
                 display_name=file.name,
                 original_path=original_path,
-                data_type=f"openrelik:extraction:file",
+                data_type=f"worker:openrelik:extraction:image_export:file",
+                source_file_id=input_file.get("id"),
             )
             os.rename(file.absolute(), output_file.path)
             output_files.append(output_file.to_dict())
@@ -111,7 +109,7 @@ def file_extract(
     if not output_files:
         raise RuntimeError("image_export didn't create any output files")
 
-    return task_result(
+    return create_task_result(
         output_files=output_files,
         workflow_id=workflow_id,
         command=" ".join(command[:5]),
