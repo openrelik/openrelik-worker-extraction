@@ -14,10 +14,12 @@
 import os
 import subprocess
 import shutil
+import tempfile
 
 from pathlib import Path
 from uuid import uuid4
 
+from openrelik_worker_common.archive_utils import create_archive
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
@@ -37,6 +39,13 @@ TASK_METADATA = {
             "description": "A comma seperated list of filenames to extract.",
             "type": "text",
             "required": True,
+        },
+        {
+            "name": "compress",
+            "label": "Compress extracted filenames into zip file",
+            "description": "True or False (default False).",
+            "type": "text",
+            "required": False,
         },
     ],
 }
@@ -65,6 +74,7 @@ def file_extract(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
+    compress_output = task_config["compress"] or False
     filenames = task_config["filenames"].split(",")
     for filename in filenames:
         for input_file in input_files:
@@ -87,6 +97,14 @@ def file_extract(
 
             # Execute the command and block until it finishes.
             subprocess.call(command)
+
+            if compress_output:
+                # Compress the extracted files into zip archive and remove the extracted files.
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    output_zip_file = uuid4().hex + ".zip"
+                    zip_file = create_archive(export_directory, os.path.join(temp_dir,output_zip_file), delete_input=True)
+                    os.mkdir(export_directory)
+                    shutil.move(zip_file, export_directory)
 
         export_directory_path = Path(export_directory)
         extracted_files = [
