@@ -14,10 +14,12 @@
 import os
 import subprocess
 import shutil
+import tempfile
 
 from pathlib import Path
 from uuid import uuid4
 
+from openrelik_worker_common.archive_utils import create_archive
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
@@ -50,6 +52,7 @@ def file_extract(
     output_path: str = None,
     workflow_id: str = None,
     task_config: dict = None,
+    compress_output: bool = False,
 ) -> str:
     """Run image_export on input files to extract specific filenames.
 
@@ -59,6 +62,7 @@ def file_extract(
         output_path: Path to the output directory.
         workflow_id: ID of the workflow.
         task_config: User configuration for the task.
+        compress_output: True to create (zip) archive of extracted files
 
     Returns:
         Base64-encoded dictionary containing task results.
@@ -87,6 +91,15 @@ def file_extract(
 
             # Execute the command and block until it finishes.
             subprocess.call(command)
+
+            if compress_output:
+                # Compress the extracted files into zip archive and remove the extracted files.
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    output_zip_file = uuid4().hex + ".zip"
+                    zip_file = create_archive(export_directory, os.path.join(temp_dir,output_zip_file), delete_input=True)
+                    os.mkdir(export_directory)
+                    shutil.move(zip_file, export_directory)
+
 
         export_directory_path = Path(export_directory)
         extracted_files = [
