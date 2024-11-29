@@ -40,6 +40,13 @@ TASK_METADATA = {
             "type": "text",
             "required": True,
         },
+        {
+            "name": "compress",
+            "label": "Compress extracted filenames into zip file",
+            "description": "True or False (default False).",
+            "type": "text",
+            "required": False,
+        },
     ],
 }
 
@@ -52,7 +59,6 @@ def file_extract(
     output_path: str = None,
     workflow_id: str = None,
     task_config: dict = None,
-    compress_output: bool = False,
 ) -> str:
     """Run image_export on input files to extract specific filenames.
 
@@ -62,13 +68,13 @@ def file_extract(
         output_path: Path to the output directory.
         workflow_id: ID of the workflow.
         task_config: User configuration for the task.
-        compress_output: True to create (zip) archive of extracted files
 
     Returns:
         Base64-encoded dictionary containing task results.
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
+    compress_output = task_config["compress"] or False
     filenames = task_config["filenames"].split(",")
     for filename in filenames:
         for input_file in input_files:
@@ -99,7 +105,6 @@ def file_extract(
                     zip_file = create_archive(export_directory, os.path.join(temp_dir,output_zip_file), delete_input=True)
                     os.mkdir(export_directory)
                     shutil.move(zip_file, export_directory)
-
 
         export_directory_path = Path(export_directory)
         extracted_files = [
