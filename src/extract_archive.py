@@ -32,7 +32,7 @@ TASK_METADATA = {
 
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
-def extract_archive(
+def extract_archive_task(
     self,
     pipe_result: str = None,
     input_files: list = None,
