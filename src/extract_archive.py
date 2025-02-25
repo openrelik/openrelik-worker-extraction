@@ -28,11 +28,21 @@ TASK_NAME = "openrelik-worker-extraction.tasks.extract_archive"
 TASK_METADATA = {
     "display_name": "Extract Archives",
     "description": "Extract different types of archives",
+    "task_config": [
+        {
+            "name": "file_filter",
+            "label": "Select files (glob patterns) to extract",
+            "description": "A comma separated list of filenames to extract. Glob patterns are supported. Example: *.txt, *.evtx",
+            "type": "text",
+            "required": True,
+        },
+    ],
+
 }
 
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
-def extract_archive(
+def extract_archive_task(
     self,
     pipe_result: str = None,
     input_files: list = None,
@@ -54,14 +64,18 @@ def extract_archive(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
+    file_filters = task_config.get("file_filter") or []
+    if file_filters:
+        file_filters = file_filters.split(",")
+
     for input_file in input_files:
         log_file = create_output_file(
             output_path,
-            display_name=f"archive_extract_{input_file.get("display_name")}",
+            display_name=f"extract_archives_{input_file.get("display_name")}.log",
         )
 
         (command_string, export_directory) = extract_archive(
-            input_file, output_path, log_file.path
+            input_file, output_path, log_file.path, file_filters
         )
 
         if os.path.isfile(log_file.path):
