@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "openrelik-worker-artifact-extraction"
-version = "0.2.0"
+version = "0.3.0"
 description = "Extract forensic artifacts with image_export"
 authors = ["Ramses de Beer <ramsesdebeer@gmail.com>"]
 license = "Apache 2.0"
