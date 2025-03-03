@@ -23,6 +23,42 @@ from openrelik_worker_common.task_utils import create_task_result, get_input_fil
 
 from .app import celery
 
+# These are taken from Plaso's extraction tool.
+# TODO: Extract these using the ExtractionTool from Plaso.
+SUPPORTED_FILE_SIGNATURES = [
+    "7z",
+    "bzip2",
+    "elf",
+    "esedb",
+    "evt",
+    "evtx",
+    "ewf_e01",
+    "ewf_l01",
+    "exe_mz",
+    "gzip",
+    "jpeg",
+    "lnk",
+    "msiecf",
+    "nk2",
+    "olecf",
+    "olecf_beta",
+    "oxml",
+    "pdf",
+    "pff",
+    "qcow",
+    "rar",
+    "regf",
+    "sqlite2",
+    "sqlite3",
+    "tar",
+    "tar_old",
+    "vhdi_footer",
+    "vhdi_header",
+    "wtcdb_cache",
+    "wtcdb_index",
+    "zip",
+]
+
 # Task name used to register and route the task to the correct queue.
 TASK_NAME = "openrelik-worker-extraction.tasks.file_extract"
 
@@ -33,10 +69,25 @@ TASK_METADATA = {
     "task_config": [
         {
             "name": "filenames",
-            "label": "Select filenames to extract",
-            "description": "A comma seperated list of filenames to extract.",
+            "label": "Enter file names to filter on",
+            "description": "Filter on file names. This option accepts a comma separated string denoting all file names, e.g. NTUSER.DAT,UsrClass.dat",
             "type": "text",
-            "required": True,
+            "required": False,
+        },
+        {
+            "name": "file_extensions",
+            "label": "Enter file extensions to filter on, e.g evtx,exe",
+            "description": "Filter on file name extensions. This option accepts multiple multiple comma separated values e.g. evtx,exe",
+            "type": "text",
+            "required": False,
+        },
+        {
+            "name": "file_signatures",
+            "label": "Select file format signatures to filter on",
+            "description": "Filter on file format signature identifiers.",
+            "type": "autocomplete",
+            "items": SUPPORTED_FILE_SIGNATURES,
+            "required": False,
         },
     ],
 }
@@ -65,32 +116,46 @@ def file_extract(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
-    filenames = task_config["filenames"].split(",")
-    for filename in filenames:
-        for input_file in input_files:
-            export_directory = os.path.join(output_path, uuid4().hex)
-            os.mkdir(export_directory)
+    filename_filter = task_config.get("filenames")
+    file_extension_filter = task_config.get("file_extensions")
+    file_signature_filter = task_config.get("file_signatures")
 
-            command = [
-                "image_export.py",
-                "--unattended",
-                "--name",
-                filename,
-                "--write",
-                export_directory,
-                "--partitions",
-                "all",
-                "--volumes",
-                "all",
-                input_file.get("path"),
-            ]
+    for input_file in input_files:
+        export_directory = os.path.join(output_path, uuid4().hex)
+        os.mkdir(export_directory)
 
-            # Execute the command and block until it finishes.
-            subprocess.call(command)
+        command = [
+            "image_export.py",
+            "--unattended",
+            "--write",
+            export_directory,
+            "--partitions",
+            "all",
+            "--volumes",
+            "all",
+        ]
+
+        # Add the filters to the command. These are optional, but if they are set
+        # they will be used to filter the files extracted. they can be combined to
+        # filter on multiple criteria. The filters are combined with an OR operation.
+        if filename_filter:
+            command.extend(["--names", filename_filter])
+
+        if file_extension_filter:
+            command.extend(["--extensions", file_extension_filter])
+
+        if file_signature_filter:
+            command.extend(["--signatures", ",".join(file_signature_filter)])
+
+        # Add the input file path to the command.
+        command.append(input_file.get("path"))
+
+        # Execute the command and block until it finishes.
+        subprocess.call(command)
 
         export_directory_path = Path(export_directory)
         extracted_files = [
-            f for f in export_directory_path.glob(f"**/{filename}") if f.is_file()
+            f for f in export_directory_path.glob(f"**/*") if f.is_file()
         ]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
@@ -104,7 +169,7 @@ def file_extract(
             os.rename(file.absolute(), output_file.path)
             output_files.append(output_file.to_dict())
 
-    shutil.rmtree(export_directory)
+        shutil.rmtree(export_directory)
 
     if not output_files:
         raise RuntimeError("image_export didn't create any output files")
