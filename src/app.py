@@ -15,7 +15,6 @@
 import os
 
 from celery.app import Celery
-
 from openrelik_worker_common.debug_utils import start_debugger
 
 if os.getenv("OPENRELIK_PYDEBUG") == "1":
@@ -26,8 +25,8 @@ celery = Celery(
     broker=REDIS_URL,
     backend=REDIS_URL,
     include=[
+        "src.archives",
         "src.image_export_artifact",
         "src.image_export_file",
-        "src.extract_archive",
     ],
 )
