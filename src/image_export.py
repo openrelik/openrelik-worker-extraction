@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-import subprocess
 import shutil
-
+import subprocess
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -60,13 +60,20 @@ SUPPORTED_FILE_SIGNATURES = [
 ]
 
 # Task name used to register and route the task to the correct queue.
-TASK_NAME = "openrelik-worker-extraction.tasks.file_extract"
+TASK_NAME = "openrelik-worker-extraction.tasks.image_export"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "Extract Files",
-    "description": "Extract files from a disk image",
+    "display_name": "Extract files from disk images",
+    "description": "Extract files from disk images using Plaso's Image Export tool.",
     "task_config": [
+        {
+            "name": "artifacts",
+            "label": "Select artifacts to extract",
+            "description": "Select one or more forensic artifact definition from the ForensicArtifacts project. These definitions specify files and data relevant to digital forensic investigations.  The selected artifacts will then be extracted from the provided disk image.",
+            "type": "artifacts",
+            "required": False,
+        },
         {
             "name": "filenames",
             "label": "Enter file names to filter on",
@@ -94,7 +101,7 @@ TASK_METADATA = {
 
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
-def file_extract(
+def extract_task(
     self,
     pipe_result: str = None,
     input_files: list = None,
@@ -102,7 +109,7 @@ def file_extract(
     workflow_id: str = None,
     task_config: dict = None,
 ) -> str:
-    """Run image_export on input files to extract specific filenames.
+    """Run image_export on input files to extract specific artifacts.
 
     Args:
         pipe_result: Base64-encoded result from the previous Celery task, if any.
@@ -114,61 +121,93 @@ def file_extract(
     Returns:
         Base64-encoded dictionary containing task results.
     """
-    input_files = get_input_files(pipe_result, input_files or [])
-    output_files = []
-    filename_filter = task_config.get("filenames")
-    file_extension_filter = task_config.get("file_extensions")
-    file_signature_filter = task_config.get("file_signatures")
 
-    for input_file in input_files:
-        export_directory = os.path.join(output_path, uuid4().hex)
-        os.mkdir(export_directory)
+    def _get_base_command(export_directory):
+        """Get the base command for image_export.
 
-        command = [
+        Args:
+            export_directory: Directory to export files to.
+        """
+
+        return [
             "image_export.py",
-            "--unattended",
+            "--no-hashes",
             "--write",
             export_directory,
             "--partitions",
             "all",
             "--volumes",
             "all",
+            "--unattended",
         ]
 
-        # Add the filters to the command. These are optional, but if they are set
-        # they will be used to filter the files extracted. they can be combined to
-        # filter on multiple criteria. The filters are combined with an OR operation.
-        if filename_filter:
-            command.extend(["--names", filename_filter])
+    input_files = get_input_files(pipe_result, input_files or [])
+    output_files = []
+    commands_to_run = []
+    export_directories = []
 
-        if file_extension_filter:
-            command.extend(["--extensions", file_extension_filter])
+    # Filters for the artifacts to extract.
+    artifact_filter = task_config.get("artifacts")
+    filename_filter = task_config.get("filenames")
+    file_extension_filter = task_config.get("file_extensions")
+    file_signature_filter = task_config.get("file_signatures")
 
-        if file_signature_filter:
-            command.extend(["--signatures", ",".join(file_signature_filter)])
+    # If no filters are set, exit early.
+    if not any([artifact_filter, filename_filter, file_extension_filter, file_signature_filter]):
+        raise RuntimeError("No filters were set. Please set at least one filter.")
 
-        # Add the input file path to the command.
-        command.append(input_file.get("path"))
+    for input_file in input_files:
+        # We need to run image_export separately for each filter because it doesn't support
+        # combining file and artifact filters.
 
-        # Execute the command and block until it finishes.
-        subprocess.call(command)
+        # Filter using artifact definitions.
+        if artifact_filter:
+            export_directory = os.path.join(output_path, uuid4().hex)
+            os.mkdir(export_directory)
+            command = _get_base_command(export_directory)
+            command.extend(["--artifact_filters", ",".join(artifact_filter)])
+            commands_to_run.append(command)
+            export_directories.append(export_directory)
 
+        # Filter using file properties such as name, extension, and file signature.
+        if any([filename_filter, file_extension_filter, file_signature_filter]):
+            export_directory = os.path.join(output_path, uuid4().hex)
+            os.mkdir(export_directory)
+            command = _get_base_command(export_directory)
+            if filename_filter:
+                command.extend(["--names", filename_filter])
+            if file_extension_filter:
+                command.extend(["--extensions", file_extension_filter])
+            if file_signature_filter:
+                command.extend(["--signatures", ",".join(file_signature_filter)])
+            commands_to_run.append(command)
+            export_directories.append(export_directory)
+
+        for command in commands_to_run:
+            # Add the input file path to the command.
+            command.append(input_file.get("path"))
+            # Execute the command and block until it finishes.
+            process = subprocess.Popen(command)
+            while process.poll() is None:
+                self.send_event("task-progress")
+                time.sleep(1)
+
+    for export_directory in export_directories:
         export_directory_path = Path(export_directory)
-        extracted_files = [
-            f for f in export_directory_path.glob(f"**/*") if f.is_file()
-        ]
+        extracted_files = [f for f in export_directory_path.glob("**/*") if f.is_file()]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
             output_file = create_output_file(
                 output_path,
                 display_name=file.name,
                 original_path=original_path,
-                data_type=f"worker:openrelik:extraction:image_export:file",
+                data_type="extraction:image_export:file",
                 source_file_id=input_file.get("id"),
             )
             os.rename(file.absolute(), output_file.path)
             output_files.append(output_file.to_dict())
 
+        # Finally clean up the export directory
         shutil.rmtree(export_directory)
 
     if not output_files:
@@ -177,5 +216,4 @@ def file_extract(
     return create_task_result(
         output_files=output_files,
         workflow_id=workflow_id,
-        command=" ".join(command[:5]),
     )
