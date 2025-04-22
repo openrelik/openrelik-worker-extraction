@@ -26,7 +26,6 @@ celery = Celery(
     backend=REDIS_URL,
     include=[
         "src.archives",
-        "src.image_export_artifact",
-        "src.image_export_file",
+        "src.image_export",
     ],
 )
