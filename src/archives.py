@@ -26,8 +26,8 @@ TASK_NAME = "openrelik-worker-extraction.tasks.extract_archive"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
-    "display_name": "Extract Archives",
-    "description": "Extract different types of archives",
+    "display_name": "Extract files from archives",
+    "description": "Extract files from different types of archives (zip, tar, 7z, etc.)",
     "task_config": [
         {
             "name": "file_filter",
@@ -37,7 +37,6 @@ TASK_METADATA = {
             "required": True,
         },
     ],
-
 }
 
 
@@ -64,14 +63,18 @@ def extract_archive_task(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
+    log_files = []
     file_filters = task_config.get("file_filter") or []
     if file_filters:
         file_filters = file_filters.split(",")
 
+    # Send a task progress event to indicate the task has started
+    self.send_event("task-progress")
+
     for input_file in input_files:
         log_file = create_output_file(
             output_path,
-            display_name=f"extract_archives_{input_file.get("display_name")}.log",
+            display_name=f"extract_archives_{input_file.get('display_name')}.log",
         )
 
         (command_string, export_directory) = extract_archive(
@@ -79,24 +82,23 @@ def extract_archive_task(
         )
 
         if os.path.isfile(log_file.path):
-            output_files.append(log_file.to_dict())
+            log_files.append(log_file.to_dict())
 
         export_directory_path = Path(export_directory)
-        extracted_files = [f for f in export_directory_path.glob("**/*") if f.is_file()]
+        extracted_files = [file for file in export_directory_path.glob("**/*") if file.is_file()]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
-
             output_file = create_output_file(
                 output_path,
                 display_name=file.name,
                 original_path=original_path,
-                data_type=f"worker:openrelik:extraction:archive",
+                data_type="extraction:archive:file",
                 source_file_id=input_file.get("id"),
             )
             os.rename(file.absolute(), output_file.path)
-
             output_files.append(output_file.to_dict())
 
+        # Clean up the export directory
         shutil.rmtree(export_directory)
 
     if not output_files:
@@ -104,6 +106,7 @@ def extract_archive_task(
 
     return create_task_result(
         output_files=output_files,
+        task_logs=log_files,
         workflow_id=workflow_id,
         command=command_string,
     )
