@@ -63,7 +63,7 @@ def extract_archive_task(
     """
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
-    log_files = []
+    task_files = []
     file_filters = task_config.get("file_filter") or []
     if file_filters:
         file_filters = file_filters.split(",")
@@ -82,7 +82,7 @@ def extract_archive_task(
         )
 
         if os.path.isfile(log_file.path):
-            log_files.append(log_file.to_dict())
+            task_files.append(log_file.to_dict())
 
         export_directory_path = Path(export_directory)
         extracted_files = [file for file in export_directory_path.glob("**/*") if file.is_file()]
@@ -106,7 +106,7 @@ def extract_archive_task(
 
     return create_task_result(
         output_files=output_files,
-        task_logs=log_files,
+        task_files=task_files,
         workflow_id=workflow_id,
         command=command_string,
     )
