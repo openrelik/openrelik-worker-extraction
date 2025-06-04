@@ -36,6 +36,13 @@ TASK_METADATA = {
             "type": "text",
             "required": True,
         },
+        {
+            "name": "archive_password",
+            "label": "Password for the input archives",
+            "description": "The password needed to extract the input archives",
+            "type": "text",
+            "required": False,
+        },
     ],
 }
 
@@ -64,6 +71,7 @@ def extract_archive_task(
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
     task_files = []
+    archive_password = task_config.get("archive_password", None)
     file_filters = task_config.get("file_filter") or []
     if file_filters:
         file_filters = file_filters.split(",")
@@ -78,7 +86,7 @@ def extract_archive_task(
         )
 
         (command_string, export_directory) = extract_archive(
-            input_file, output_path, log_file.path, file_filters
+            input_file, output_path, log_file.path, file_filters, archive_password
         )
 
         if os.path.isfile(log_file.path):
