@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import os
 import shutil
 import subprocess
@@ -22,6 +23,8 @@ from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
+
+logger = logging.getLogger(__name__)
 
 # These are taken from Plaso's extraction tool.
 # TODO: Extract these using the ExtractionTool from Plaso.
@@ -143,8 +146,6 @@ def extract_task(
 
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
-    commands_to_run = []
-    export_directories = []
 
     # Filters for the artifacts to extract.
     artifact_filter = task_config.get("artifacts")
@@ -157,6 +158,9 @@ def extract_task(
         raise RuntimeError("No filters were set. Please set at least one filter.")
 
     for input_file in input_files:
+        commands_to_run = []
+        export_directories = []
+
         # We need to run image_export separately for each filter because it doesn't support
         # combining file and artifact filters.
 
@@ -186,29 +190,30 @@ def extract_task(
         for command in commands_to_run:
             # Add the input file path to the command.
             command.append(input_file.get("path"))
+            logger.info(f"Executing command: {' '.join(command)}")
             # Execute the command and block until it finishes.
             process = subprocess.Popen(command)
             while process.poll() is None:
                 self.send_event("task-progress")
                 time.sleep(1)
 
-    for export_directory in export_directories:
-        export_directory_path = Path(export_directory)
-        extracted_files = [f for f in export_directory_path.glob("**/*") if f.is_file()]
-        for file in extracted_files:
-            original_path = str(file.relative_to(export_directory_path))
-            output_file = create_output_file(
-                output_path,
-                display_name=file.name,
-                original_path=original_path,
-                data_type="extraction:image_export:file",
-                source_file_id=input_file.get("id"),
-            )
-            os.rename(file.absolute(), output_file.path)
-            output_files.append(output_file.to_dict())
+        for export_directory in export_directories:
+            export_directory_path = Path(export_directory)
+            extracted_files = [f for f in export_directory_path.glob("**/*") if f.is_file()]
+            for file in extracted_files:
+                original_path = str(file.relative_to(export_directory_path))
+                output_file = create_output_file(
+                    output_path,
+                    display_name=file.name,
+                    original_path=original_path,
+                    data_type="extraction:image_export:file",
+                    source_file_id=input_file.get("id"),
+                )
+                os.rename(file.absolute(), output_file.path)
+                output_files.append(output_file.to_dict())
 
-        # Finally clean up the export directory
-        shutil.rmtree(export_directory)
+            # Finally clean up the export directory
+            shutil.rmtree(export_directory)
 
     if not output_files:
         raise RuntimeError("image_export didn't create any output files")
