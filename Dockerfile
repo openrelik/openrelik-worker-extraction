@@ -1,9 +1,6 @@
 # Use the official Docker Hub Ubuntu base image
 FROM ubuntu:24.04
 
-# Choose what version of Plaso to use.
-ARG PPA_TRACK=stable
-
 # Prevent needing to configure debian packages, stopping the setup of
 # the docker container.
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
@@ -18,6 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     tzdata \
   && rm -rf /var/lib/apt/lists/*
+
+# Choose which Plaso version to use, default is stable
+ARG PPA_TRACK=stable
 
 # Install Plaso
 # TODO(hacktobeer): Use "dfimagetools-tools" instead of "plaso-tools" when image_export.py has been migrated.
