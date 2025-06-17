@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import json
 import os
 import shutil
 import subprocess
 import time
+
 from pathlib import Path
 from uuid import uuid4
 
@@ -154,10 +156,13 @@ def extract_task(
     file_signature_filter = task_config.get("file_signatures")
 
     # If no filters are set, exit early.
-    if not any([artifact_filter, filename_filter, file_extension_filter, file_signature_filter]):
+    if not any(
+        [artifact_filter, filename_filter, file_extension_filter, file_signature_filter]
+    ):
         raise RuntimeError("No filters were set. Please set at least one filter.")
 
     for input_file in input_files:
+        logger.debug(f"Processing {input_file}")
         commands_to_run = []
         export_directories = []
 
@@ -169,6 +174,7 @@ def extract_task(
             export_directory = os.path.join(output_path, uuid4().hex)
             os.mkdir(export_directory)
             command = _get_base_command(export_directory)
+            command.extend(["--enable_artifacts_map"])
             command.extend(["--artifact_filters", ",".join(artifact_filter)])
             commands_to_run.append(command)
             export_directories.append(export_directory)
@@ -199,18 +205,35 @@ def extract_task(
 
         for export_directory in export_directories:
             export_directory_path = Path(export_directory)
-            extracted_files = [f for f in export_directory_path.glob("**/*") if f.is_file()]
+            extracted_files = [
+                f for f in export_directory_path.glob("**/*") if f.is_file()
+            ]
             for file in extracted_files:
+                # We need to hard ignore this file as image_export.py creates
+                # this file in a fixed path and filename.
+                if "artifacts_map.json" in file.absolute().name:
+                    continue
                 original_path = str(file.relative_to(export_directory_path))
-                output_file = create_output_file(
-                    output_path,
-                    display_name=file.name,
-                    original_path=original_path,
-                    data_type="extraction:image_export:file",
-                    source_file_id=input_file.get("id"),
+                artifact_types = get_artifact_types(
+                    export_directory_path, original_path
                 )
-                os.rename(file.absolute(), output_file.path)
-                output_files.append(output_file.to_dict())
+                if not artifact_types:
+                    artifact_types = ["extraction:image_export:file"]
+                    logger.debug(
+                        f"No artifact type found for {original_path}, assigning {artifact_types}"
+                    )
+                # A file can have multiple artifact types and for each
+                # artifact type we need a seperate output file.
+                for artifact_type in artifact_types:
+                    output_file = create_output_file(
+                        output_path,
+                        display_name=file.name,
+                        original_path=original_path,
+                        data_type=artifact_type,
+                        source_file_id=input_file.get("id"),
+                    )
+                    shutil.copy(file.absolute(), output_file.path)
+                    output_files.append(output_file.to_dict())
 
             # Finally clean up the export directory
             shutil.rmtree(export_directory)
@@ -222,3 +245,46 @@ def extract_task(
         output_files=output_files,
         workflow_id=workflow_id,
     )
+
+
+def get_artifact_types(export_directory_path: Path, original_path: str) -> list:
+    """Get the artifact types for a file based on the image_export artifacts_map.json.
+
+    Args:
+        export_directory_path: Path to the export directory where artifacts_map.json
+                               is expected.
+        original_path: The relative path of the file within the export,
+                       as it would appear in artifacts_map.json.
+    Returns:
+        The artifact type list (e.g., "RedisConfigFile") if found, otherwise an empty list.
+    """
+    artifact_map_filename = "artifacts_map.json"
+    artifact_map_path = export_directory_path / Path(artifact_map_filename)
+    artifact_types = []
+
+    if not artifact_map_path.is_file():
+        logger.debug(f"Artifact map file not found: {artifact_map_path}")
+        return artifact_types
+
+    try:
+        with open(artifact_map_path, "r") as f:
+            artifact_map_data = json.load(f)
+    except json.JSONDecodeError:
+        logger.error(f"Error decoding JSON from artifact map file: {artifact_map_path}")
+        return artifact_types
+    except IOError as e:
+        logger.error(f"Error reading artifact map file {artifact_map_path}: {e}")
+        return artifact_types
+
+    if len(artifact_map_data) == 0:
+        logger.debug(f"Artifact map file is empty: {artifact_map_path}")
+    else:
+        logger.debug(artifact_map_data)
+        for artifact_name, paths in artifact_map_data.items():
+            if original_path in paths:
+                artifact_types.append(
+                    f"extraction:image_export:artifact:{artifact_name}"
+                )
+
+    logger.debug(f"Artifact types found for {original_path}: {artifact_types}")
+    return artifact_types
