@@ -71,6 +71,7 @@ def extract_archive_task(
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
     task_files = []
+    command_string = ""
     archive_password = task_config.get("archive_password", None)
     file_filters = task_config.get("file_filter") or []
     if file_filters:
@@ -108,9 +109,6 @@ def extract_archive_task(
 
         # Clean up the export directory
         shutil.rmtree(export_directory)
-
-    if not output_files:
-        raise RuntimeError("Archive extractor didn't create any output files")
 
     return create_task_result(
         output_files=output_files,
