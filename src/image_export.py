@@ -238,9 +238,6 @@ def extract_task(
             # Finally clean up the export directory
             shutil.rmtree(export_directory)
 
-    if not output_files:
-        raise RuntimeError("image_export didn't create any output files")
-
     return create_task_result(
         output_files=output_files,
         workflow_id=workflow_id,
