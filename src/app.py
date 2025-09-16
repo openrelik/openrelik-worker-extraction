@@ -15,7 +15,10 @@
 import os
 
 from celery.app import Celery
+from openrelik_common import telemetry
 from openrelik_worker_common.debug_utils import start_debugger
+
+telemetry.setup_telemetry("openrelik-worker-extraction")
 
 if os.getenv("OPENRELIK_PYDEBUG") == "1":
     start_debugger()
@@ -29,3 +32,5 @@ celery = Celery(
         "src.image_export",
     ],
 )
+
+telemetry.instrument_celery_app(celery)
