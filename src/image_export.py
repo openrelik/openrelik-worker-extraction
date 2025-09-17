@@ -23,6 +23,7 @@ from uuid import uuid4
 from celery import signals
 from celery.utils.log import get_task_logger
 from openrelik_common.logging import Logger
+from openrelik_common import telemetry
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
@@ -108,6 +109,7 @@ TASK_METADATA = {
 log_root = Logger()
 logger = log_root.get_logger(__name__, get_task_logger(__name__))
 
+
 @signals.task_prerun.connect
 def on_task_prerun(sender, task_id, task, args, kwargs, **_):
     log_root.bind(
@@ -115,6 +117,7 @@ def on_task_prerun(sender, task_id, task, args, kwargs, **_):
         task_name=task.name,
         worker_name=TASK_METADATA.get("display_name"),
     )
+
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
 def extract_task(
@@ -168,6 +171,12 @@ def extract_task(
     file_extension_filter = task_config.get("file_extensions")
     file_signature_filter = task_config.get("file_signatures")
 
+    telemetry.add_attribute_to_current_span("input_files", input_files)
+    telemetry.add_attribute_to_current_span("task_config", task_config)
+    telemetry.add_attribute_to_current_span("workflow_id", workflow_id)
+
+    telemetry.add_event_to_current_span("Starting files extraction")
+
     # If no filters are set, exit early.
     if not any(
         [artifact_filter, filename_filter, file_extension_filter, file_signature_filter]
@@ -212,7 +221,9 @@ def extract_task(
             command.append(input_file.get("path"))
             logger.info(f"Executing command: {' '.join(command)}")
             # Execute the command and block until it finishes.
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             while process.poll() is None:
                 self.send_event("task-progress")
                 time.sleep(1)
@@ -257,6 +268,8 @@ def extract_task(
             shutil.rmtree(export_directory)
 
     logger.info(f"Done {TASK_NAME} for workflow {workflow_id}")
+    telemetry.add_event_to_current_span("Completed files extraction")
+
     return create_task_result(
         output_files=output_files,
         workflow_id=workflow_id,

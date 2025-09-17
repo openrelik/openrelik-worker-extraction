@@ -18,6 +18,7 @@ from pathlib import Path
 
 from celery import signals
 from celery.utils.log import get_task_logger
+from openrelik_common import telemetry
 from openrelik_common.logging import Logger
 from openrelik_worker_common.archive_utils import extract_archive
 from openrelik_worker_common.file_utils import create_output_file
@@ -54,6 +55,7 @@ TASK_METADATA = {
 log_root = Logger()
 logger = log_root.get_logger(__name__, get_task_logger(__name__))
 
+
 @signals.task_prerun.connect
 def on_task_prerun(sender, task_id, task, args, kwargs, **_):
     log_root.bind(
@@ -61,6 +63,7 @@ def on_task_prerun(sender, task_id, task, args, kwargs, **_):
         task_name=task.name,
         worker_name=TASK_METADATA.get("display_name"),
     )
+
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
 def extract_archive_task(
@@ -98,6 +101,12 @@ def extract_archive_task(
     # Send a task progress event to indicate the task has started
     self.send_event("task-progress")
 
+    telemetry.add_attribute_to_current_span("input_files", input_files)
+    telemetry.add_attribute_to_current_span("task_config", task_config)
+    telemetry.add_attribute_to_current_span("workflow_id", workflow_id)
+
+    telemetry.add_event_to_current_span("Starting extration of files")
+
     for input_file in input_files:
         log_root.bind(input_file=input_file)
         logger.info(f"Processing {input_file}")
@@ -121,7 +130,9 @@ def extract_archive_task(
             task_files.append(log_file.to_dict())
 
         export_directory_path = Path(export_directory)
-        extracted_files = [file for file in export_directory_path.glob("**/*") if file.is_file()]
+        extracted_files = [
+            file for file in export_directory_path.glob("**/*") if file.is_file()
+        ]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
             output_file = create_output_file(
@@ -138,6 +149,8 @@ def extract_archive_task(
         shutil.rmtree(export_directory)
 
     logger.info(f"Done {TASK_NAME} for workflow {workflow_id}")
+    telemetry.add_event_to_current_span("Completed extration of files")
+
     return create_task_result(
         output_files=output_files,
         task_files=task_files,
