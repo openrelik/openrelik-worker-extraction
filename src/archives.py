@@ -15,6 +15,7 @@ import os
 import shutil
 from pathlib import Path
 
+from openrelik_common import telemetry
 from openrelik_worker_common.archive_utils import extract_archive
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
@@ -80,6 +81,12 @@ def extract_archive_task(
     # Send a task progress event to indicate the task has started
     self.send_event("task-progress")
 
+    telemetry.add_attribute_to_current_span("input_files", input_files)
+    telemetry.add_attribute_to_current_span("task_config", task_config)
+    telemetry.add_attribute_to_current_span("workflow_id", workflow_id)
+
+    telemetry.add_event_to_current_span("Starting extration of files")
+
     for input_file in input_files:
         log_file = create_output_file(
             output_path,
@@ -109,6 +116,8 @@ def extract_archive_task(
 
         # Clean up the export directory
         shutil.rmtree(export_directory)
+
+    telemetry.add_event_to_current_span("Completed extration of files")
 
     return create_task_result(
         output_files=output_files,

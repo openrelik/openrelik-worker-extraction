@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from openrelik_common import telemetry
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
@@ -155,6 +156,12 @@ def extract_task(
     file_extension_filter = task_config.get("file_extensions")
     file_signature_filter = task_config.get("file_signatures")
 
+    telemetry.add_attribute_to_current_span("input_files", input_files)
+    telemetry.add_attribute_to_current_span("task_config", task_config)
+    telemetry.add_attribute_to_current_span("workflow_id", workflow_id)
+
+    telemetry.add_event_to_current_span("Starting files extraction")
+
     # If no filters are set, exit early.
     if not any(
         [artifact_filter, filename_filter, file_extension_filter, file_signature_filter]
@@ -237,6 +244,8 @@ def extract_task(
 
             # Finally clean up the export directory
             shutil.rmtree(export_directory)
+
+    telemetry.add_event_to_current_span("Completed files extraction")
 
     return create_task_result(
         output_files=output_files,
