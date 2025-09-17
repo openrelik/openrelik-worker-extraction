@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import json
 import os
 import shutil
@@ -21,13 +20,15 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from celery import signals
+from celery.utils.log import get_task_logger
+from openrelik_common.logging import Logger
 from openrelik_common import telemetry
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
 
-logger = logging.getLogger(__name__)
 
 # These are taken from Plaso's extraction tool.
 # TODO: Extract these using the ExtractionTool from Plaso.
@@ -105,6 +106,18 @@ TASK_METADATA = {
     ],
 }
 
+log_root = Logger()
+logger = log_root.get_logger(__name__, get_task_logger(__name__))
+
+
+@signals.task_prerun.connect
+def on_task_prerun(sender, task_id, task, args, kwargs, **_):
+    log_root.bind(
+        task_id=task_id,
+        task_name=task.name,
+        worker_name=TASK_METADATA.get("display_name"),
+    )
+
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
 def extract_task(
@@ -127,6 +140,8 @@ def extract_task(
     Returns:
         Base64-encoded dictionary containing task results.
     """
+    log_root.bind(workflow_id=workflow_id)
+    logger.info(f"Starting {TASK_NAME} for workflow {workflow_id}")
 
     def _get_base_command(export_directory):
         """Get the base command for image_export.
@@ -169,6 +184,7 @@ def extract_task(
         raise RuntimeError("No filters were set. Please set at least one filter.")
 
     for input_file in input_files:
+        log_root.bind(input_file=input_file)
         logger.debug(f"Processing {input_file}")
         commands_to_run = []
         export_directories = []
@@ -205,10 +221,16 @@ def extract_task(
             command.append(input_file.get("path"))
             logger.info(f"Executing command: {' '.join(command)}")
             # Execute the command and block until it finishes.
-            process = subprocess.Popen(command)
+            process = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             while process.poll() is None:
                 self.send_event("task-progress")
                 time.sleep(1)
+            if process.stdout:
+                logger.info(process.stdout.read())
+            if process.stderr:
+                logger.error(process.stderr.read())
 
         for export_directory in export_directories:
             export_directory_path = Path(export_directory)
@@ -245,6 +267,7 @@ def extract_task(
             # Finally clean up the export directory
             shutil.rmtree(export_directory)
 
+    logger.info(f"Done {TASK_NAME} for workflow {workflow_id}")
     telemetry.add_event_to_current_span("Completed files extraction")
 
     return create_task_result(

@@ -15,7 +15,11 @@ import os
 import shutil
 from pathlib import Path
 
+
+from celery import signals
+from celery.utils.log import get_task_logger
 from openrelik_common import telemetry
+from openrelik_common.logging import Logger
 from openrelik_worker_common.archive_utils import extract_archive
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
@@ -48,6 +52,19 @@ TASK_METADATA = {
 }
 
 
+log_root = Logger()
+logger = log_root.get_logger(__name__, get_task_logger(__name__))
+
+
+@signals.task_prerun.connect
+def on_task_prerun(sender, task_id, task, args, kwargs, **_):
+    log_root.bind(
+        task_id=task_id,
+        task_name=task.name,
+        worker_name=TASK_METADATA.get("display_name"),
+    )
+
+
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
 def extract_archive_task(
     self,
@@ -69,6 +86,9 @@ def extract_archive_task(
     Returns:
         Base64-encoded dictionary containing task results.
     """
+    log_root.bind(workflow_id=workflow_id)
+    logger.info(f"Starting {TASK_NAME} for workflow {workflow_id}")
+
     input_files = get_input_files(pipe_result, input_files or [])
     output_files = []
     task_files = []
@@ -88,20 +108,31 @@ def extract_archive_task(
     telemetry.add_event_to_current_span("Starting extration of files")
 
     for input_file in input_files:
+        log_root.bind(input_file=input_file)
+        logger.info(f"Processing {input_file}")
+
         log_file = create_output_file(
             output_path,
             display_name=f"extract_archives_{input_file.get('display_name')}.log",
         )
 
-        (command_string, export_directory) = extract_archive(
-            input_file, output_path, log_file.path, file_filters, archive_password
-        )
+        try:
+            (command_string, export_directory) = extract_archive(
+                input_file, output_path, log_file.path, file_filters, archive_password
+            )
+        except Exception as e:
+            logger.error(f"extract_archive failed: {e}")
+            raise
+
+        logger.info(f"Executed extract_archive command: {command_string}")
 
         if os.path.isfile(log_file.path):
             task_files.append(log_file.to_dict())
 
         export_directory_path = Path(export_directory)
-        extracted_files = [file for file in export_directory_path.glob("**/*") if file.is_file()]
+        extracted_files = [
+            file for file in export_directory_path.glob("**/*") if file.is_file()
+        ]
         for file in extracted_files:
             original_path = str(file.relative_to(export_directory_path))
             output_file = create_output_file(
@@ -117,6 +148,7 @@ def extract_archive_task(
         # Clean up the export directory
         shutil.rmtree(export_directory)
 
+    logger.info(f"Done {TASK_NAME} for workflow {workflow_id}")
     telemetry.add_event_to_current_span("Completed extration of files")
 
     return create_task_result(
