@@ -31,6 +31,9 @@ celery = Celery(
         "src.archives",
         "src.image_export",
     ],
+    worker_hijack_root_logger=False, # Disable Celery hijacking configured Python loggers.
+    worker_log_format="%(message)s",
+    worker_task_log_format="%(message)s",
 )
 
 telemetry.instrument_celery_app(celery)
