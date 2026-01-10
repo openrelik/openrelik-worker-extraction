@@ -15,3 +15,9 @@ openrelik-worker-extraction:
       - ./data:/usr/share/openrelik/data
     command: "celery --app=src.app worker --task-events --concurrency=4 --loglevel=INFO -Q openrelik-worker-extraction"
 ```
+
+## Test
+```
+uv sync --group test
+uv run pytest -s --cov=.
+```
