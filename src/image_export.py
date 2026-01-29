@@ -28,6 +28,7 @@ from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
+from .utils import process_plaso_cli_logs
 
 
 # These are taken from Plaso's extraction tool.
@@ -222,7 +223,7 @@ def extract_task(
             logger.info(f"Executing command: {' '.join(command)}")
             # Execute the command and block until it finishes.
             process = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
             )
             while process.poll() is None:
                 self.send_event("task-progress")
@@ -230,7 +231,7 @@ def extract_task(
             if process.stdout:
                 logger.info(process.stdout.read())
             if process.stderr:
-                logger.error(process.stderr.read())
+                process_plaso_cli_logs(process.stderr.read(), logger)
 
         for export_directory in export_directories:
             export_directory_path = Path(export_directory)
